@@ -39,5 +39,6 @@ func main() {
 	if err := srv.Shutdown(); err != nil {
 		log.Printf("Server Shutdown Failed:%+v", err)
 	}
+
 	log.Print("Server Exited Properly")
 }
