@@ -69,7 +69,7 @@ The project follows a modular structure for clarity and maintainability:
 
 ### Prerequisites
 
-- Go 1.20+ (consider upgrading to 1.22)
+- Go 1.23+ (consider upgrading to 1.23)
 - Tools for OpenAPI code generation (e.g., `oapi-codegen`)
 
 ### Steps
