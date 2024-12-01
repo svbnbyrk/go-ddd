@@ -7,7 +7,6 @@ import (
 
 	"github.com/svbnbyrk/go-ddd/internal/app"
 	"github.com/svbnbyrk/go-ddd/internal/app/command"
-	"github.com/svbnbyrk/go-ddd/pkg/server"
 )
 
 type HttpServer struct {
@@ -28,14 +27,13 @@ func (s HttpServer) CreateWallet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := server.Serve[command.CreateWalletRequest](s.app.Commands.CreateWalletHandler)
-	//response, err := s.app.Commands.CreateWalletHandler.Handle(context.Background(), &command.CreateWalletRequest{
-	//	WalletName: wallet.Name,
-	//})
-	// if err != nil {
-	// 	http.Error(w, "Invalid request", http.StatusBadRequest)
-	// 	return
-	// }
+	response, err := s.app.Commands.CreateWalletHandler.Handle(context.Background(), &command.CreateWalletRequest{
+		WalletName: wallet.Name,
+	})
+	if err != nil {
+		http.Error(w, "Invalid request", http.StatusBadRequest)
+		return
+	}
 
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)

@@ -2,7 +2,6 @@ package decorator
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/sirupsen/logrus"
 )

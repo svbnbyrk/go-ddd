@@ -2,6 +2,6 @@ package: ports
 output: internal/ports/server.gen.go
 generate:
   embedded-spec: true
-  strict-server: false
+  strict-server: true
   models: true
   chi-server: true # compatible with net/http
