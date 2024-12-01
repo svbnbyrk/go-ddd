@@ -15,8 +15,6 @@ func main() {
 	ctx := context.Background()
 	application := internal.NewApplication(ctx)
 
-	//r.Post("/wallets", server.Serve[command.CreateWalletRequest, command.CreateWalletResponse](application.Commands.CreateWalletHandler))
-
 	router.RunHTTPServer(func(router chi.Router) http.Handler {
 		return ports.HandlerFromMux(
 			ports.NewHttpServer(application),

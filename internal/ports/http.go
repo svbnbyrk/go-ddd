@@ -1,11 +1,13 @@
 package ports
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 
-	"github.com/google/uuid"
 	"github.com/svbnbyrk/go-ddd/internal/app"
+	"github.com/svbnbyrk/go-ddd/internal/app/command"
+	"github.com/svbnbyrk/go-ddd/pkg/server"
 )
 
 type HttpServer struct {
@@ -25,12 +27,16 @@ func (s HttpServer) CreateWallet(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
-	id := uuid.New()
-	response := WalletResponse{
-		Id:      id.String(),
-		Name:    wallet.Name,
-		Balance: wallet.Balance,
-	}
+
+	response := server.Serve[command.CreateWalletRequest](s.app.Commands.CreateWalletHandler)
+	//response, err := s.app.Commands.CreateWalletHandler.Handle(context.Background(), &command.CreateWalletRequest{
+	//	WalletName: wallet.Name,
+	//})
+	// if err != nil {
+	// 	http.Error(w, "Invalid request", http.StatusBadRequest)
+	// 	return
+	// }
+
 	w.WriteHeader(http.StatusCreated)
 	json.NewEncoder(w).Encode(response)
 }

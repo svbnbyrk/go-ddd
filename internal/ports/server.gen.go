@@ -4,14 +4,18 @@
 package ports
 
 import (
-	"context"
-	"encoding/json"
+	"bytes"
+	"compress/gzip"
+	"encoding/base64"
 	"fmt"
 	"net/http"
+	"net/url"
+	"path"
+	"strings"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
-	strictnethttp "github.com/oapi-codegen/runtime/strictmiddleware/nethttp"
 )
 
 // Wallet defines model for Wallet.
@@ -229,132 +233,86 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	return r
 }
 
-type CreateWalletRequestObject struct {
-	Body *CreateWalletJSONRequestBody
+// Base64 encoded, gzipped, json marshaled Swagger object
+var swaggerSpec = []string{
+
+	"H4sIAAAAAAAC/7ySP2/cMAzFv4rBdhTiu3bT1rRAcFvRpUOQQZboRIH1pxR9gWH4uxeifW7SZGvQjZbF",
+	"x6ff4ww2hZwiRi6gZyj2AYOR8qcZBuRaZUoZiT3KeWcGEy3Wsk8UDIOGfkiGQQFPGUFDHEOHBIuCaILc",
+	"3H4UJh/vYVkUEP4aPaEDfQvewXZV7fJ3u1rqHtFyVVst/cCSUyz4j9a8e8PY+zquXT72SfQ8D/Xf+obm",
+	"y/cTKDgjFZ8iaDheHa4OdX7KGE32oOGzHCnIhh/kee352D5Ju3zmVCSeSsCwT/HkQMNXQsO4hbeaxsLX",
+	"yU31rk2RMUqbyXnwVhrbx1JNXOKv1UfCHjR8aP/sR7stR7uJLy+hMI0oB2s6YvHT4fjOU/fwZbrDYsln",
+	"XhluaK0QcJJZGUMwNO1cGtM8Xdyr50Db2bulWrjHN6DeIK/i19PJSSRkAjJSAX07g6/Ta0yXpdDrgryE",
+	"o5499O/tunsF7vD/wREyeTy/QneDvFFruqk5fasSy+8AAAD//6Kdo9M6BAAA",
 }
 
-type CreateWalletResponseObject interface {
-	VisitCreateWalletResponse(w http.ResponseWriter) error
+// GetSwagger returns the content of the embedded swagger specification file
+// or error if failed to decode
+func decodeSpec() ([]byte, error) {
+	zipped, err := base64.StdEncoding.DecodeString(strings.Join(swaggerSpec, ""))
+	if err != nil {
+		return nil, fmt.Errorf("error base64 decoding spec: %w", err)
+	}
+	zr, err := gzip.NewReader(bytes.NewReader(zipped))
+	if err != nil {
+		return nil, fmt.Errorf("error decompressing spec: %w", err)
+	}
+	var buf bytes.Buffer
+	_, err = buf.ReadFrom(zr)
+	if err != nil {
+		return nil, fmt.Errorf("error decompressing spec: %w", err)
+	}
+
+	return buf.Bytes(), nil
 }
 
-type CreateWallet201JSONResponse WalletResponse
+var rawSpec = decodeSpecCached()
 
-func (response CreateWallet201JSONResponse) VisitCreateWalletResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(201)
-
-	return json.NewEncoder(w).Encode(response)
+// a naive cached of a decoded swagger spec
+func decodeSpecCached() func() ([]byte, error) {
+	data, err := decodeSpec()
+	return func() ([]byte, error) {
+		return data, err
+	}
 }
 
-type GetWalletByIdRequestObject struct {
-	Id string `json:"id"`
+// Constructs a synthetic filesystem for resolving external references when loading openapi specifications.
+func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
+	res := make(map[string]func() ([]byte, error))
+	if len(pathToFile) > 0 {
+		res[pathToFile] = rawSpec
+	}
+
+	return res
 }
 
-type GetWalletByIdResponseObject interface {
-	VisitGetWalletByIdResponse(w http.ResponseWriter) error
-}
+// GetSwagger returns the Swagger specification corresponding to the generated code
+// in this file. The external references of Swagger specification are resolved.
+// The logic of resolving external references is tightly connected to "import-mapping" feature.
+// Externally referenced files must be embedded in the corresponding golang packages.
+// Urls can be supported but this task was out of the scope.
+func GetSwagger() (swagger *openapi3.T, err error) {
+	resolvePath := PathToRawSpec("")
 
-type GetWalletById200JSONResponse WalletResponse
-
-func (response GetWalletById200JSONResponse) VisitGetWalletByIdResponse(w http.ResponseWriter) error {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(200)
-
-	return json.NewEncoder(w).Encode(response)
-}
-
-// StrictServerInterface represents all server handlers.
-type StrictServerInterface interface {
-	// Create a wallet
-	// (POST /v1/wallets)
-	CreateWallet(ctx context.Context, request CreateWalletRequestObject) (CreateWalletResponseObject, error)
-	// Get wallet by ID
-	// (GET /v1/wallets/{id})
-	GetWalletById(ctx context.Context, request GetWalletByIdRequestObject) (GetWalletByIdResponseObject, error)
-}
-
-type StrictHandlerFunc = strictnethttp.StrictHttpHandlerFunc
-type StrictMiddlewareFunc = strictnethttp.StrictHttpMiddlewareFunc
-
-type StrictHTTPServerOptions struct {
-	RequestErrorHandlerFunc  func(w http.ResponseWriter, r *http.Request, err error)
-	ResponseErrorHandlerFunc func(w http.ResponseWriter, r *http.Request, err error)
-}
-
-func NewStrictHandler(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc) ServerInterface {
-	return &strictHandler{ssi: ssi, middlewares: middlewares, options: StrictHTTPServerOptions{
-		RequestErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-		},
-		ResponseErrorHandlerFunc: func(w http.ResponseWriter, r *http.Request, err error) {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		},
-	}}
-}
-
-func NewStrictHandlerWithOptions(ssi StrictServerInterface, middlewares []StrictMiddlewareFunc, options StrictHTTPServerOptions) ServerInterface {
-	return &strictHandler{ssi: ssi, middlewares: middlewares, options: options}
-}
-
-type strictHandler struct {
-	ssi         StrictServerInterface
-	middlewares []StrictMiddlewareFunc
-	options     StrictHTTPServerOptions
-}
-
-// CreateWallet operation middleware
-func (sh *strictHandler) CreateWallet(w http.ResponseWriter, r *http.Request) {
-	var request CreateWalletRequestObject
-
-	var body CreateWalletJSONRequestBody
-	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+	loader.ReadFromURIFunc = func(loader *openapi3.Loader, url *url.URL) ([]byte, error) {
+		pathToFile := url.String()
+		pathToFile = path.Clean(pathToFile)
+		getSpec, ok := resolvePath[pathToFile]
+		if !ok {
+			err1 := fmt.Errorf("path not found: %s", pathToFile)
+			return nil, err1
+		}
+		return getSpec()
+	}
+	var specData []byte
+	specData, err = rawSpec()
+	if err != nil {
 		return
 	}
-	request.Body = &body
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.CreateWallet(ctx, request.(CreateWalletRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "CreateWallet")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
+	swagger, err = loader.LoadFromData(specData)
 	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(CreateWalletResponseObject); ok {
-		if err := validResponse.VisitCreateWalletResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+		return
 	}
-}
-
-// GetWalletById operation middleware
-func (sh *strictHandler) GetWalletById(w http.ResponseWriter, r *http.Request, id string) {
-	var request GetWalletByIdRequestObject
-
-	request.Id = id
-
-	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
-		return sh.ssi.GetWalletById(ctx, request.(GetWalletByIdRequestObject))
-	}
-	for _, middleware := range sh.middlewares {
-		handler = middleware(handler, "GetWalletById")
-	}
-
-	response, err := handler(r.Context(), w, r, request)
-
-	if err != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, err)
-	} else if validResponse, ok := response.(GetWalletByIdResponseObject); ok {
-		if err := validResponse.VisitGetWalletByIdResponse(w); err != nil {
-			sh.options.ResponseErrorHandlerFunc(w, r, err)
-		}
-	} else if response != nil {
-		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
-	}
+	return
 }
