@@ -19,14 +19,13 @@ func NewHttpServer(application app.Application) HttpServer {
 }
 
 // CreateWallet handles POST /v1/wallets
-func (s *HttpServer) CreateWallet(w http.ResponseWriter, r *http.Request) {
+func (s HttpServer) CreateWallet(w http.ResponseWriter, r *http.Request) {
 	var wallet Wallet
 	if err := json.NewDecoder(r.Body).Decode(&wallet); err != nil {
 		http.Error(w, "Invalid request", http.StatusBadRequest)
 		return
 	}
 	id := uuid.New()
-	// Example response
 	response := WalletResponse{
 		Id:      id.String(),
 		Name:    wallet.Name,
@@ -37,7 +36,7 @@ func (s *HttpServer) CreateWallet(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetWalletById handles GET /v1/wallets/{id}
-func (s *HttpServer) GetWalletById(w http.ResponseWriter, r *http.Request, id string) {
+func (s HttpServer) GetWalletById(w http.ResponseWriter, r *http.Request, id string) {
 	// Example response
 	response := WalletResponse{
 		Id:      id,

@@ -3,38 +3,26 @@ package main
 import (
 	"context"
 	"log"
-	"os"
-	"os/signal"
+	"net/http"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/svbnbyrk/go-ddd/internal"
-	"github.com/svbnbyrk/go-ddd/internal/app/command"
-	"github.com/svbnbyrk/go-ddd/pkg/server"
+	"github.com/svbnbyrk/go-ddd/internal/ports"
+	"github.com/svbnbyrk/go-ddd/pkg/server/router"
 )
 
 func main() {
-	r := chi.NewRouter()
 	ctx := context.Background()
 	application := internal.NewApplication(ctx)
 
-	r.Post("/wallets", server.Serve[command.CreateWalletRequest, command.CreateWalletResponse](application.Commands.CreateWalletHandler))
+	//r.Post("/wallets", server.Serve[command.CreateWalletRequest, command.CreateWalletResponse](application.Commands.CreateWalletHandler))
 
-	srv := server.New(r)
-
-	go func() {
-		if err := <-srv.Notify(); err != nil {
-			log.Printf("Server error: %v", err)
-		}
-	}()
-
-	// Graceful shutdown
-	quit := make(chan os.Signal, 1)
-	signal.Notify(quit, os.Interrupt)
-	<-quit
-
-	if err := srv.Shutdown(); err != nil {
-		log.Printf("Server Shutdown Failed:%+v", err)
-	}
+	router.RunHTTPServer(func(router chi.Router) http.Handler {
+		return ports.HandlerFromMux(
+			ports.NewHttpServer(application),
+			router,
+		)
+	})
 
 	log.Print("Server Exited Properly")
 }
