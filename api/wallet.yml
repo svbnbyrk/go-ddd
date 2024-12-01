@@ -1,0 +1,68 @@
+openapi: 3.0.0
+info:
+  title: Wallet API
+  version: 1.0.0
+paths:
+  /v1/wallets:
+    post:
+      summary: Create a wallet
+      operationId: createWallet
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Wallet'
+      responses:
+        '201':
+          description: Wallet created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+  /v1/wallets/{id}:
+    get:
+      summary: Get wallet by ID
+      operationId: getWalletById
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Wallet retrieved
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WalletResponse'
+
+components:
+  schemas:
+    Wallet:
+      type: object
+      required:
+        - id
+        - name
+        - balance
+      properties:
+        name:
+          type: string
+        balance:
+          type: number
+          format: float
+    WalletResponse:
+      type: object
+      required:
+        - id
+        - name
+        - balance
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        balance:
+          type: number
+          format: float
