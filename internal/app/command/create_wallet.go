@@ -4,13 +4,16 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/google/uuid"
 	"github.com/svbnbyrk/go-ddd/pkg/server"
 )
 
 type CreateWalletRequest struct {
 	WalletName string
 }
-type CreateWalletResponse struct{}
+type CreateWalletResponse struct {
+	ID uuid.UUID
+}
 type CreateWalletHandler struct{}
 
 func NewCreateWalletHandler() *CreateWalletHandler {
@@ -22,5 +25,7 @@ func (h *CreateWalletHandler) Handle(ctx context.Context, req *CreateWalletReque
 		return nil, server.NewAppError(http.StatusBadRequest, "Wallet is required")
 	}
 
-	return &CreateWalletResponse{}, nil
+	return &CreateWalletResponse{
+		ID: uuid.New(),
+	}, nil
 }

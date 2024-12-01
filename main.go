@@ -1,27 +1,23 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
 	"os/signal"
 
 	"github.com/go-chi/chi/v5"
-	"github.com/svbnbyrk/go-ddd/internal/app"
+	"github.com/svbnbyrk/go-ddd/internal"
 	"github.com/svbnbyrk/go-ddd/internal/app/command"
 	"github.com/svbnbyrk/go-ddd/pkg/server"
 )
 
 func main() {
 	r := chi.NewRouter()
+	ctx := context.Background()
+	application := internal.NewApplication(ctx)
 
-	a := &app.Application{
-		Commands: app.Commands{
-			CreateWalletHandler: command.NewCreateWalletHandler(),
-		},
-		Queries: app.Queries{},
-	}
-
-	r.Post("/wallets", server.Serve[command.CreateWalletRequest, command.CreateWalletResponse](a.Commands.CreateWalletHandler))
+	r.Post("/wallets", server.Serve[command.CreateWalletRequest, command.CreateWalletResponse](application.Commands.CreateWalletHandler))
 
 	srv := server.New(r)
 

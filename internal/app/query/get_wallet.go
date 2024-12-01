@@ -1,4 +1,4 @@
-package command
+package query
 
 import (
 	"context"
@@ -19,8 +19,8 @@ func NewGetWalletHandler() *GetWalletHandler {
 }
 
 func (h *GetWalletHandler) Handle(ctx context.Context, req *GetWalletRequest) (*GetWalletResponse, error) {
-	if req.WalletName == "" {
-		return nil, server.NewAppError(, "Wallet is required")
+	if req.ID.String() == "" {
+		return nil, server.NewAppError(http.StatusBadRequest, "Wallet is required")
 	}
 
 	return &GetWalletResponse{}, nil

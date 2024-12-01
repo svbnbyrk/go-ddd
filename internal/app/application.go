@@ -1,6 +1,9 @@
 package app
 
-import "github.com/svbnbyrk/go-ddd/internal/app/command"
+import (
+	"github.com/svbnbyrk/go-ddd/internal/app/command"
+	"github.com/svbnbyrk/go-ddd/internal/app/query"
+)
 
 type Application struct {
 	Commands Commands
@@ -12,4 +15,5 @@ type Commands struct {
 }
 
 type Queries struct {
+	GetWalletHandler *query.GetWalletHandler
 }
